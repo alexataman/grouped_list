@@ -155,6 +155,8 @@ class GroupedListView<T, E> extends StatefulWidget {
   /// {@macro flutter.widgets.scrollable.restorationId}
   final String? restorationId;
 
+  final double? headerHeight;
+
   /// The number of children that will contribute semantic information.
   ///
   /// Some subtypes of [ScrollView] can infer this value automatically. For
@@ -190,6 +192,7 @@ class GroupedListView<T, E> extends StatefulWidget {
     this.itemBuilder,
     this.indexedItemBuilder,
     this.itemComparator,
+    this.headerHeight,
     this.order = GroupedListOrder.ASC,
     this.sort = true,
     this.useStickyGroupSeparators = false,
@@ -221,7 +224,7 @@ class GroupedListView<T, E> extends StatefulWidget {
   State<StatefulWidget> createState() => _GroupedListViewState<T, E>();
 }
 
-class _GroupedListViewState<T, E> extends State<GroupedListView<T, E>> {
+class _GroupedListViewState<T, E> extends State<GroupedListView<T, E>> with TickerProviderStateMixin {
   final StreamController<int> _streamController = StreamController<int>();
   final LinkedHashMap<String, GlobalKey> _keys = LinkedHashMap();
   final GlobalKey _key = GlobalKey();
@@ -231,6 +234,7 @@ class _GroupedListViewState<T, E> extends State<GroupedListView<T, E>> {
   int _topElementIndex = 0;
   RenderBox? _headerBox;
   RenderBox? _listBox;
+  late final AnimationController _animationController;
 
   @override
   void initState() {
@@ -238,6 +242,7 @@ class _GroupedListViewState<T, E> extends State<GroupedListView<T, E>> {
     if (widget.useStickyGroupSeparators) {
       _controller.addListener(_scrollListener);
     }
+    _animationController = AnimationController(vsync: this, duration: Duration(seconds: 0));
     super.initState();
   }
 
@@ -293,10 +298,10 @@ class _GroupedListViewState<T, E> extends State<GroupedListView<T, E>> {
           itemBuilder: (context, index) {
             var actualIndex = index ~/ 2;
             if (index == hiddenIndex) {
-              return Opacity(
+              return AnimatedBuilder(animation: _animationController, builder: (context, child) => Opacity(
                 opacity: widget.useStickyGroupSeparators ? 0 : 1,
                 child: _buildGroupSeparator(_sortedElements[actualIndex]),
-              );
+              ));
             }
             if (_isSeparator(index)) {
               var curr = widget.groupBy(_sortedElements[actualIndex]);
@@ -337,6 +342,7 @@ class _GroupedListViewState<T, E> extends State<GroupedListView<T, E>> {
   void _scrollListener() {
     _listBox ??= _key.currentContext?.findRenderObject() as RenderBox?;
     var listPos = _listBox?.localToGlobal(Offset.zero).dy ?? 0;
+    _animationController.animateTo(listPos / widget.headerHeight!);
     _headerBox ??=
         _groupHeaderKey?.currentContext?.findRenderObject() as RenderBox?;
     var headerHeight = _headerBox?.size.height ?? 0;
